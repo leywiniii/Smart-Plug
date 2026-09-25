@@ -1,4 +1,3 @@
-# Smart-Plug
 # MySmartPlug
 
 ### Smart Electrical Safety & Control System
