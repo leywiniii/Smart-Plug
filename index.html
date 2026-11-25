@@ -7,7 +7,7 @@
   <meta name="description" content="MySmartPlug — Monitor and protect connected appliances with a smart electrical safety plug." />
   <title>MySmartPlug</title>
 
-    <link rel="stylesheet" href="mysmartplug.css" />
+    <link rel="stylesheet" href="mysmartplug.css?v=8" />
 </head>
 <body>
   <div class="shell">
@@ -22,34 +22,26 @@
       </a>
 
       <nav class="nav-center" aria-label="Section navigation">
-        <a class="nav-link active" href="#home" data-page="home">Home</a>
-        <a class="nav-link" href="#about" data-page="about">About</a>
-        <a class="nav-link" href="#monitoring" data-page="monitoring">Monitoring</a>
-        <a class="nav-link" href="#how" data-page="how">How It Works</a>
-        <a class="nav-link" href="#faq" data-page="faq">FAQ</a>
+        <a class="nav-link active" href="#home" data-page="home" data-public-nav>Home</a>
+        <a class="nav-link" href="#about" data-page="about" data-public-nav>About</a>
+        <a class="nav-link" href="#faq" data-page="faq" data-public-nav>FAQ</a>
+        <a class="nav-link" href="#monitoring" data-page="monitoring" data-admin-nav hidden>Monitoring</a>
+        <a class="nav-link" href="#how" data-page="how" data-admin-nav hidden>How It Works</a>
+        <a class="nav-link" href="#history" data-page="history" data-admin-nav hidden>History</a>
       </nav>
 
-      <div class="nav-actions" aria-label="Account actions">
-        <button class="locked" type="button" aria-disabled="true" title="Coming soon">
-          <span class="label">Log In</span>
+      <div class="nav-actions" aria-label="Admin access">
+        <button class="account-btn" id="auth-btn" type="button" data-admin="false">
+          <span class="label" id="auth-label">Admin Log In</span>
           <svg class="lock" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12v10H6z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span class="soon">Coming Soon</span>
-        </button>
-
-        <button class="locked primary" type="button" aria-disabled="true" title="Coming soon">
-          <span class="label">Sign Up</span>
-          <svg class="lock" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12v10H6z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span class="soon">Coming Soon</span>
         </button>
       </div>
     </header>
 
     <main class="content" id="main-content">
-      <div id="home">
+      <div id="home" data-public-section>
       <section aria-labelledby="main-title">
         <div class="identity">
           <div class="identity-icon" aria-hidden="true">
@@ -92,7 +84,7 @@
 
       </div>
 
-      <section class="section" id="about" aria-labelledby="about-title">
+      <section class="section" id="about" data-public-section aria-labelledby="about-title">
         <div class="section-head">
           <h2 id="about-title">About MySmartPlug</h2>
           <p>Smart protection, simply connected.</p>
@@ -119,10 +111,28 @@
         </div>
       </section>
 
-      <section class="section" id="monitoring" aria-labelledby="monitoring-title">
+      <section class="section" id="monitoring" data-admin-section aria-labelledby="monitoring-title">
         <div class="section-head">
           <h2 id="monitoring-title">Monitoring &amp; Protection</h2>
           <p>Know what your appliance is doing.</p>
+        </div>
+        <div class="mode-panel" aria-label="Operating modes">
+          <div class="mode-panel-heading">
+            <div><span class="eyebrow">SYSTEM OPERATION</span><h3>Operating Mode</h3></div>
+            <span class="mode-current" id="mode-current" data-mode="AUTO">AUTO</span>
+          </div>
+          <div class="mode-buttons">
+            <button class="mode-btn active" type="button" data-mode-button="AUTO">AUTO</button>
+            <button class="mode-btn" type="button" data-mode-button="MAINTENANCE">MAINTENANCE</button>
+            <button class="mode-btn" type="button" data-mode-button="SLEEP">SLEEP</button>
+          </div>
+          <p class="mode-description" id="mode-description">Automatic monitoring is active. Readings are updated live and saved to history every 3 minutes.</p>
+          <div class="maintenance-actions" id="maintenance-actions" hidden>
+            <span class="maintenance-label">MAINTENANCE ACTION</span>
+            <p>When the device is sleeping, use this control to request that it wake and return to MAINTENANCE mode.</p>
+            <button class="btn btn-primary" id="wake-up-btn" type="button">Wake Up</button>
+          </div>
+          <p class="mode-message" id="mode-message" role="status" aria-live="polite"></p>
         </div>
         <div class="monitor-layout">
           <p class="intro section-copy">
@@ -130,40 +140,85 @@
             understand appliance activity before an issue becomes a disruption.
           </p>
           <div class="monitor-readings" aria-label="Monitored readings">
-            
+
             <div class="reading">
-             <span class="reading-label">Voltage</span>
+              <span class="reading-label">Voltage</span>
               <span class="reading-value">
-              <span id="voltage">--</span>
-              <small>V</small>
+                <span id="voltage">--</span>
+                <small>V</small>
               </span>
             </div>
 
             <div class="reading">
               <span class="reading-label">Current</span>
               <span class="reading-value">
-                  <span id="current">--</span>
-               <small>A</small>
-             </span>
+                <span id="current">--</span>
+                <small>A</small>
+              </span>
             </div>
 
             <div class="reading">
-               <span class="reading-label">Temperature</span>
-                <span class="reading-value">
-                  <span id="temperature">--</span>
-                 <small>°C</small>
-                 </span>
+              <span class="reading-label">Temperature</span>
+              <span class="reading-value">
+                <span id="temperature">--</span>
+                <small>&deg;C</small>
+              </span>
             </div>
 
-            <div class="protection-status">
-              <span class="status-label">Protection status</span>
-              <span class="status-value"><span class="status-dot"></span>Protected</span>
+            <div class="reading">
+              <span class="reading-label">Power</span>
+              <span class="reading-value">
+                <span id="power">--</span>
+                <small>W</small>
+              </span>
             </div>
+
+            <div class="reading">
+              <span class="reading-label">Uptime</span>
+              <span class="reading-value reading-value-sm">
+                <span id="uptime">--</span>
+              </span>
+            </div>
+
+            <div class="reading">
+              <span class="reading-label">Device</span>
+              <span class="reading-value reading-value-sm">
+                <span id="link-state">--</span>
+                <small id="link-age"></small>
+              </span>
+            </div>
+
+            <div class="protection-status wide" id="status-panel" data-state="offline" aria-live="polite">
+              <span class="status-label">System status</span>
+              <span class="status-value"><span class="status-dot"></span><span id="system-status">Waiting for device</span></span>
+              <span class="status-note" id="status-note">No data from the device yet.</span>
+            </div>
+
+            <div class="protection-status wide" id="outlet-panel" data-state="unknown">
+              <span class="status-label">Outlet</span>
+              <div class="outlet-line">
+                <span class="outlet-badge"><span class="status-dot"></span><span id="outlet-status">--</span></span>
+
+                <div class="control-buttons" id="control-buttons" hidden>
+                  <button class="btn btn-primary" id="btn-on" type="button">Turn ON</button>
+                  <button class="btn" id="btn-off" type="button">Turn OFF</button>
+                </div>
+              </div>
+
+              <div class="control-locked" id="control-locked">
+                <span id="control-locked-text">Log in as admin to switch the outlet.</span>
+                <button class="btn" id="control-login-btn" type="button">Admin Log In</button>
+              </div>
+
+              <p class="control-msg" id="control-msg" role="status" aria-live="polite"></p>
+              <p class="control-hint">If the outlet disconnects because of an unsafe condition, it stays off until the condition clears and you turn it ON again here.</p>
+            </div>
+
           </div>
         </div>
       </section>
 
-      <section class="section" id="how" aria-labelledby="how-title">
+      <section class="section" id="how" data-admin-section aria-labelledby="how-title">
         <div class="section-head">
           <h2 id="how-title">How It Works</h2>
           <p>From sensing to notification.</p>
@@ -196,7 +251,70 @@
         </div>
       </section>
 
-      <section class="section" id="faq" aria-labelledby="faq-title">
+      <section class="section" id="history" aria-labelledby="history-title" data-admin-section hidden>
+        <div class="section-head history-heading">
+          <div>
+            <h2 id="history-title">History</h2>
+            <p>Review sensor measurements and confirmed system activities.</p>
+          </div>
+          <div class="history-range">
+            <label for="history-range">Time range</label>
+            <select id="history-range">
+              <option value="3">Last 3 hours</option>
+              <option value="12">Last 12 hours</option>
+              <option value="24">Last 24 hours</option>
+              <option value="36" selected>Last 36 hours</option>
+              <option value="all">All available data</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="history-toolbar">
+          <div><span class="eyebrow">LOCAL DATABASE</span><p id="history-status">Loading saved records…</p></div>
+          <button class="btn" id="refresh-history" type="button">Refresh history</button>
+        </div>
+
+        <div class="history-stats">
+          <article class="history-stat"><span>Total readings</span><strong id="history-total">--</strong><small id="history-duration">Selected period</small></article>
+          <article class="history-stat"><span>Average voltage</span><strong id="history-avg-voltage">--</strong><small>Volts</small></article>
+          <article class="history-stat"><span>Average current</span><strong id="history-avg-current">--</strong><small>Amperes</small></article>
+          <article class="history-stat"><span>Average temperature</span><strong id="history-avg-temperature">--</strong><small>Degrees Celsius</small></article>
+        </div>
+
+        <div class="history-chart-card">
+          <div class="history-card-heading">
+            <div><h3>Sensor Readings Over Time</h3><p id="history-chart-period">Last 36 hours</p></div>
+            <span class="history-live-note">Recorded every 3 minutes in AUTO</span>
+          </div>
+          <div class="history-legend">
+            <span><i class="legend-dot voltage-dot"></i>Voltage (V)</span>
+            <span><i class="legend-dot current-dot"></i>Current (A)</span>
+            <span><i class="legend-dot temperature-dot"></i>Temperature (°C)</span>
+          </div>
+          <div class="history-chart" id="history-chart" role="img" aria-label="Sensor readings chart">
+            <p class="history-empty">No sensor measurements recorded for this period.</p>
+          </div>
+        </div>
+
+        <div class="history-log-card">
+          <div class="history-card-heading history-log-heading">
+            <div><h3>Sensor History Log</h3><p id="history-log-count">Individual saved sensor measurements</p></div>
+            <div class="history-pagination">
+              <button class="btn" id="history-prev" type="button" disabled>Previous</button>
+              <span id="history-page-label">Page 1</span>
+              <button class="btn" id="history-next" type="button" disabled>Next</button>
+            </div>
+          </div>
+          <div class="history-table-wrap">
+            <table class="history-table">
+              <thead><tr><th>#</th><th>Date &amp; Time</th><th>Voltage (V)</th><th>Current (A)</th><th>Temperature (°C)</th><th>Power (W)</th><th>Mode</th></tr></thead>
+              <tbody id="history-body"><tr><td colspan="7">No records loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="faq" data-public-section aria-labelledby="faq-title">
         <div class="section-head">
           <h2 id="faq-title">Frequently Asked Questions</h2>
           <p>Straightforward answers.</p>
@@ -233,6 +351,26 @@
     </footer>
   </div>
 
-    <script src="mysmartplug.js"></script>
+      <dialog class="login-dialog" id="login-dialog" aria-labelledby="login-title">
+    <form class="login-form" id="login-form">
+      <h2 id="login-title">Admin Log In</h2>
+      <p>Enter the admin password to switch the outlet ON or OFF. Monitoring stays visible to everyone.</p>
+      <label for="login-password">Password</label>
+      <div class="pw-wrap">
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+        <button class="pw-toggle" id="pw-toggle" type="button" aria-label="Show password" aria-pressed="false">
+          <svg class="eye-on" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/></svg>
+          <svg class="eye-off" viewBox="0 0 24 24" fill="none" aria-hidden="true" hidden><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 4.2-1M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <p class="login-error" id="login-error" role="alert"></p>
+      <div class="login-actions">
+        <button class="btn" type="button" id="login-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="login-submit">Log In</button>
+      </div>
+    </form>
+  </dialog>
+
+    <script src="mysmartplug.js?v=8"></script>
 </body>
 </html>
