@@ -56,22 +56,9 @@
           </div>
         </div>
 
-        <div class="meta-row" aria-label="Core capabilities">
-          <span class="meta-item"><span class="meta-dot"></span>Remote Control</span>
-          <span class="meta-sep" aria-hidden="true"></span>
-          <span class="meta-item">Electrical Monitoring</span>
-          <span class="meta-sep" aria-hidden="true"></span>
-          <span class="meta-item">Local Protection</span>
-        </div>
-
         <p class="intro">
           Monitor the appliances you already have. <strong>Make them safer and smarter with one connected plug.</strong>
         </p>
-
-        <div class="cta-row">
-          <span class="coming-btn"><span class="pulse"></span>Coming Soon</span>
-          <span class="domain">mysmartplug.online</span>
-        </div>
 
         <div class="cover" aria-label="MySmartPlug product concept">
           <div class="plug-photo-wrap" aria-label="MySmartPlug product image">
@@ -187,6 +174,18 @@
                 <small id="link-age"></small>
               </span>
             </div>
+
+<div class="sensor-control-panel" id="sensor-control-panel">
+            <div class="sensor-control-heading">
+              <div><span class="eyebrow">SENSOR MANAGEMENT</span><h3>Individual Sensor Controls</h3><p>Enable or disable each sensor in MAINTENANCE mode.</p></div>
+              <span class="sensor-control-note" id="sensor-control-note" role="status" aria-live="polite">Loading sensor states…</span>
+            </div>
+            <div class="sensor-switch-grid">
+              <div class="sensor-switch-row"><div><strong>Voltage Sensor</strong></div><button class="sensor-toggle" type="button" data-sensor-toggle="voltage" aria-pressed="true" disabled>ON</button></div>
+              <div class="sensor-switch-row"><div><strong>Current Sensor</strong></div><button class="sensor-toggle" type="button" data-sensor-toggle="current" aria-pressed="true" disabled>ON</button></div>
+              <div class="sensor-switch-row"><div><strong>Temperature Sensor</strong></div><button class="sensor-toggle" type="button" data-sensor-toggle="temperature" aria-pressed="true" disabled>ON</button></div>
+            </div>
+          </div>
 
             <div class="protection-status wide" id="status-panel" data-state="offline" aria-live="polite">
               <span class="status-label">System status</span>

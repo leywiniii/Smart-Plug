@@ -63,10 +63,37 @@
       setControlMessage(data.relay===pendingCommand.state?'Done: the outlet is '+pendingCommand.state.toUpperCase()+'.':'The device did not switch the outlet. Check the system status above.');pendingCommand=null;
     }
   }
+  const SENSOR_BITS = {voltage:2,current:4,temperature:8};
+  let sensorMask = 14;
+  let sensorBusy = false;
+  function sensorEnabled(name, mask=sensorMask){return (mask & SENSOR_BITS[name]) !== 0;}
+  function sensorValue(value, enabled, digits, valid=true){
+    if(!enabled)return 'offline';
+    if(!valid || value===null || value===undefined || value==='')return '0';
+    return fmt(value,digits);
+  }
+  function updateSensorControls(mask){
+    if(Number.isFinite(num(mask)))sensorMask=Number(mask)&14;
+    document.querySelectorAll('[data-sensor-toggle]').forEach(button=>{
+      const enabled=sensorEnabled(button.dataset.sensorToggle);
+      button.textContent=enabled?'ON':'OFF';button.setAttribute('aria-pressed',enabled?'true':'false');
+      button.disabled=!isAdmin || currentMode!=='MAINTENANCE' || sensorBusy;
+    });
+    const panel=$('sensor-control-panel');
+    if(panel)panel.hidden=(currentMode!=='MAINTENANCE');
+    const note=$('sensor-control-note');
+    if(note)note.textContent=!isAdmin?'Admin login required.':currentMode!=='MAINTENANCE'?'Switch to MAINTENANCE to change sensor states.':'Sensor controls are ready.';
+  }
   function updateMonitoring(data) {
-    setText('voltage',fmt(data.voltage,1));setText('current',fmt(data.current,2));
-    setText('temperature',data.temperature_valid&&data.temperature!==null?fmt(data.temperature,1):'--');
-    let power=num(data.power);if(!Number.isFinite(power))power=num(data.voltage)*num(data.current);setText('power',fmt(power,0));
+    const mask=Number.isFinite(num(data.test_mask))?Number(data.test_mask):sensorMask;
+    updateSensorControls(mask);
+    const vOn=sensorEnabled('voltage',mask),iOn=sensorEnabled('current',mask),tOn=sensorEnabled('temperature',mask);
+    setText('voltage',sensorValue(data.voltage,vOn,1));
+    setText('current',sensorValue(data.current,iOn,2));
+    setText('temperature',sensorValue(data.temperature,tOn,1,data.temperature_valid!==false));
+    let power=num(data.power);
+    if(!Number.isFinite(power)&&vOn&&iOn){const v=num(data.voltage),i=num(data.current);power=(Number.isFinite(v)?v:0)*(Number.isFinite(i)?i:0);}
+    setText('power',vOn&&iOn?(Number.isFinite(power)?power.toFixed(0):'0'):'offline');
     setText('uptime',fmtUptime(data.uptime_s));setText('link-state','Online');
     const age=num(data.age_seconds);setText('link-age',Number.isFinite(age)?Math.round(age)+' s ago':'');
     renderStatus(data);renderOutlet(data);
@@ -75,7 +102,8 @@
     }
   }
   function showOffline(data, unreachable) {
-    ['voltage','current','temperature','power','uptime'].forEach(id=>setText(id,'--'));
+    ['voltage','current','temperature','power'].forEach(id=>setText(id,'offline'));
+    setText('uptime','--');
     const age=data?num(data.age_seconds):NaN;setText('link-state','Offline');setText('link-age',Number.isFinite(age)?'last seen '+Math.round(age)+' s ago':'');
     setState('status-panel','offline');setText('system-status','Device offline');
     setText('status-note',unreachable?'Cannot reach the server.':'No recent data from the device. Check its power and Wi-Fi.');
@@ -105,6 +133,7 @@
     const wakeActions=$('maintenance-actions');
     if(wakeActions) wakeActions.hidden=!(isAdmin && mode==='SLEEP');
     applyControlVisibility();
+    updateSensorControls(sensorMask);
   }
   async function setMode(mode){
     if(!isAdmin||modeBusy)return;
@@ -138,7 +167,7 @@
     applyControlVisibility();
     if(isAdmin){updateModeUi(currentMode);loadHistory();navigate('monitoring');}else{navigate('home');}
   }
-  async function loadSession(){try{const r=await fetch('/api/session',{cache:'no-store'});const s=await r.json();isAdmin=!!s.admin;controlEnabled=s.control_enabled!==false;currentMode=s.mode||'AUTO';}catch(e){isAdmin=false;}updateAuthUi();}
+  async function loadSession(){try{const r=await fetch('/api/session',{cache:'no-store'});const s=await r.json();isAdmin=!!s.admin;controlEnabled=s.control_enabled!==false;currentMode=s.mode||'AUTO';if(Number.isFinite(num(s.test_mask)))sensorMask=Number(s.test_mask)&14;}catch(e){isAdmin=false;}updateAuthUi();}
   function openLogin(){const dialog=$('login-dialog');setText('login-error','');$('login-password').value='';if(typeof dialog.showModal==='function'){if(!dialog.open)dialog.showModal();}else dialog.setAttribute('open','');$('login-password').focus();}
   function resetPwView(){const i=$('login-password');if(i&&i.type==='text')$('pw-toggle').click();}
   function closeLogin(){resetPwView();const d=$('login-dialog');if(typeof d.close==='function'){if(d.open)d.close();}else d.removeAttribute('open');}
@@ -238,6 +267,23 @@
   $('auth-btn').addEventListener('click',()=>isAdmin?logout():openLogin());
   $('control-login-btn').addEventListener('click',openLogin);$('login-cancel').addEventListener('click',closeLogin);$('login-form').addEventListener('submit',submitLogin);
   $('btn-on').addEventListener('click',()=>sendRelay('on'));$('btn-off').addEventListener('click',()=>sendRelay('off'));
+
+  async function setSensor(name){
+    if(!isAdmin||currentMode!=='MAINTENANCE'||sensorBusy)return;
+    const nextMask=sensorEnabled(name)?(sensorMask&~SENSOR_BITS[name]):(sensorMask|SENSOR_BITS[name]);
+    sensorBusy=true;updateSensorControls(sensorMask);setText('sensor-control-note','Sending '+name+' sensor command…');
+    try{
+      const r=await fetch('/api/sensors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mask:nextMask})});
+      const d=await r.json().catch(()=>({}));
+      if(r.status===401){isAdmin=false;updateAuthUi();openLogin();return;}
+      if(!r.ok)throw new Error(d.error||'HTTP '+r.status);
+      sensorMask=Number(d.test_mask)&14;
+      setText('sensor-control-note','Command queued. Waiting for the device to apply it.');
+      getSensorData();
+    }catch(e){setText('sensor-control-note','Could not change sensor: '+e.message);}
+    finally{sensorBusy=false;updateSensorControls(sensorMask);}
+  }
+  document.querySelectorAll('[data-sensor-toggle]').forEach(b=>b.addEventListener('click',()=>setSensor(b.dataset.sensorToggle)));
   $('pw-toggle').addEventListener('click',()=>{const i=$('login-password'),show=i.type==='password';i.type=show?'text':'password';const b=$('pw-toggle');b.setAttribute('aria-pressed',show);b.setAttribute('aria-label',show?'Hide password':'Show password');b.querySelector('.eye-on').toggleAttribute('hidden',show);b.querySelector('.eye-off').toggleAttribute('hidden',!show);i.focus();});
   loadSession();getSensorData();setInterval(getSensorData,POLL_MS);
 })();

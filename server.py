@@ -30,6 +30,7 @@ relay_command = None
 command_id = 0
 mode_command = 'AUTO'
 mode_command_id = 0
+test_mask = 14  # voltage=2, current=4, temperature=8; enabled by default
 reported_mode = 'UNKNOWN'
 sessions = {}
 login_fails = {}
@@ -89,9 +90,15 @@ def log_sensor_snapshot(snapshot, mode, event='Reading'):
     def numeric(key):
         v=snapshot.get(key)
         return float(v) if isinstance(v,(int,float)) and not isinstance(v,bool) else None
-    voltage=numeric('voltage'); current=numeric('current')
-    temperature=numeric('temperature') if snapshot.get('temperature_valid', True) else None
+    mask = int(snapshot.get('test_mask', test_mask)) if str(snapshot.get('test_mask', test_mask)).lstrip('-').isdigit() else test_mask
+    voltage=numeric('voltage') if (mask & 2) else None
+    current=numeric('current') if (mask & 4) else None
+    temperature=numeric('temperature') if (mask & 8) and snapshot.get('temperature_valid', True) else None
+    if voltage is None and (mask & 2): voltage=0.0
+    if current is None and (mask & 4): current=0.0
+    if temperature is None and (mask & 8) and snapshot.get('temperature_valid', True): temperature=0.0
     power=numeric('power')
+    if power is None and (mask & 2) and (mask & 4): power=(voltage or 0.0)*(current or 0.0)
     if power is None and voltage is not None and current is not None: power=voltage*current
     with db() as c:
         c.execute('INSERT INTO sensor_logs(timestamp,voltage,current,temperature,power,mode,event) VALUES(?,?,?,?,?,?,?)',
@@ -186,7 +193,7 @@ class MySmartPlugServer(SimpleHTTPRequestHandler):
     def do_GET(self):
         path=self._path()
         if path=='/api/readings':self._get_readings();return
-        if path=='/api/session':self._send_json(200,{'admin':self._is_admin(),'control_enabled':control_enabled(),'mode':mode_command,'reported_mode':reported_mode});return
+        if path=='/api/session':self._send_json(200,{'admin':self._is_admin(),'control_enabled':control_enabled(),'mode':mode_command,'reported_mode':reported_mode,'test_mask':test_mask});return
         if path=='/api/history':self._get_history();return
         if path.startswith('/api/'):self._send_json(404,{'error':'Not found'});return
         if not self._static_allowed():self.send_error(404);return
@@ -197,10 +204,10 @@ class MySmartPlugServer(SimpleHTTPRequestHandler):
     def _get_readings(self):
         with state_lock:
             snapshot=dict(latest) if latest is not None else None;age=time.time()-last_update
-            cmd,cid=relay_command,command_id;mcmd,mcid=mode_command,mode_command_id
+            cmd,cid=relay_command,command_id;mcmd,mcid=mode_command,mode_command_id;mask=test_mask
         if snapshot is None:
-            self._send_json(503,{'error':'No data received from ESP-01S/device yet','online':False,'relay_command':cmd,'command_id':cid,'mode_command':mcmd,'mode_command_id':mcid},public=True);return
-        snapshot.update({'online':age<=STALE_AFTER_SECONDS,'age_seconds':round(age,1),'relay_command':cmd,'command_id':cid,'mode_command':mcmd,'mode_command_id':mcid})
+            self._send_json(503,{'error':'No data received from ESP-01S/device yet','online':False,'relay_command':cmd,'command_id':cid,'mode_command':mcmd,'mode_command_id':mcid,'test_mask':mask},public=True);return
+        snapshot.update({'online':age<=STALE_AFTER_SECONDS,'age_seconds':round(age,1),'relay_command':cmd,'command_id':cid,'mode_command':mcmd,'mode_command_id':mcid,'test_mask':mask})
         self._send_json(200,snapshot,public=True)
     def _get_history(self):
         if not self._is_admin():self._send_json(401,{'error':'login_required'});return
@@ -214,7 +221,7 @@ class MySmartPlugServer(SimpleHTTPRequestHandler):
         self._send_json(200,{'count':count,'records':records,'sleep_records':sleeps,'events':events})
     def do_POST(self):
         path=self._path()
-        routes={'/api/readings':self._post_readings,'/api/login':self._post_login,'/api/logout':self._post_logout,'/api/relay':self._post_relay,'/api/mode':self._post_mode}
+        routes={'/api/readings':self._post_readings,'/api/login':self._post_login,'/api/logout':self._post_logout,'/api/relay':self._post_relay,'/api/mode':self._post_mode,'/api/sensors':self._post_sensors}
         handler=routes.get(path)
         try:
             if handler:handler()
@@ -231,7 +238,7 @@ class MySmartPlugServer(SimpleHTTPRequestHandler):
         if data is None:self._send_json(400,{'error':'Invalid JSON'});return
         clean=clean_reading(data)
         with state_lock:
-            latest=clean;last_update=time.time();reply={'ok':True,'relay_command':relay_command,'command_id':command_id,'mode_command':mode_command,'mode_command_id':mode_command_id}
+            latest=clean;last_update=time.time();reply={'ok':True,'relay_command':relay_command,'command_id':command_id,'mode_command':mode_command,'mode_command_id':mode_command_id,'test_mask':test_mask}
         update_device_sleep(clean)
         print('[DEVICE]',clean);self._send_json(200,reply)
     def _post_login(self):
@@ -264,6 +271,23 @@ class MySmartPlugServer(SimpleHTTPRequestHandler):
         if state not in ('on','off'):self._send_json(400,{'error':"state must be 'on' or 'off'"});return
         with state_lock:relay_command=state;command_id+=1;cid=command_id
         log_event('Outlet command',state.upper());self._send_json(200,{'ok':True,'relay_command':state,'command_id':cid})
+
+    def _post_sensors(self):
+        global test_mask
+        if not self._is_admin():
+            self._send_json(401,{'error':'login_required'});return
+        if mode_command!='MAINTENANCE':
+            self._send_json(409,{'error':'maintenance_mode_required'});return
+        data=self._read_json() or {}
+        value=data.get('test_mask')
+        if isinstance(value,bool) or not isinstance(value,int) or value<0 or value>15:
+            self._send_json(400,{'error':'test_mask must be an integer from 0 to 15'});return
+        mask=value & 14
+        with state_lock:
+            test_mask=mask
+        log_event('Sensor control',f'Voltage={bool(mask&2)}, Current={bool(mask&4)}, Temperature={bool(mask&8)}')
+        self._send_json(200,{'ok':True,'test_mask':mask,'note':'Sensor command queued for device firmware.'})
+
     def _post_mode(self):
         global mode_command,mode_command_id
         if not self._is_admin():self._send_json(401,{'error':'login_required'});return
